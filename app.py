@@ -70,26 +70,34 @@ else:
 # --- 8. NEWS SECTION ---
 st.header(f"Latest News for {ticker}")
 
-# Fetch news from yfinance
 news_data = yf.Ticker(ticker).news
 
 if news_data:
     for article in news_data:
-        # Yahoo Finance recently moved data under a 'content' key
-        # We use .get() to avoid crashing if a piece of info is missing
-        content = article.get("content", article) 
+        # 1. Safely grab the content block
+        content = article.get("content")
         
-        title = content.get("title", "No Title Available")
-        link = content.get("clickThroughUrl", {}).get("url", article.get("link"))
-        publisher = content.get("provider", {}).get("displayName", "News Provider")
+        # If 'content' is missing or not a dictionary, fallback to the article itself
+        if not isinstance(content, dict):
+            content = article
+            
+        # 2. Get the core details with fallbacks
+        title = content.get("title", "No Title")
+        publisher = content.get("provider", {}).get("displayName", "Finance News")
+        
+        # Look for the link in several possible places
+        link = content.get("clickThroughUrl", {}).get("url") or article.get("link")
         
         with st.container():
             col1, col2 = st.columns([1, 4])
             
-            # Check for thumbnail in the new format
-            thumbnail_data = content.get("thumbnail", {}).get("resolutions", [])
-            if thumbnail_data:
-                col1.image(thumbnail_data[0]["url"])
+            # 3. ULTRA-SAFE THUMBNAIL CHECK
+            # We check each step to make sure it's a dictionary before asking for a key
+            thumb = content.get("thumbnail")
+            if isinstance(thumb, dict):
+                resolutions = thumb.get("resolutions", [])
+                if resolutions and isinstance(resolutions, list):
+                    col1.image(resolutions[0].get("url"))
             
             with col2:
                 st.subheader(title)

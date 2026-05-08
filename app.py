@@ -50,19 +50,25 @@ if st.button(f"📌 Pin {ticker}"):
 @st.cache_data
 def load_data(symbol):
     try:
-        # We use '1y' period to ensure the table isn't 10 years long and slow
-        df = yf.download(symbol, period="1y", interval="1d", auto_adjust=True)
+        # Standardize Forex input: if user types "GBPUSD", convert to "GBPUSD=X"
+        if len(symbol) == 6 and symbol.isalpha():
+            # Check if it's likely a currency pair (e.g., EURUSD)
+            search_symbol = f"{symbol}=X"
+        else:
+            search_symbol = symbol
+
+        df = yf.download(search_symbol, period="1y", interval="1d", auto_adjust=True)
+        
+        if df.empty and "=X" not in search_symbol:
+            # Try one more time as a currency if first try failed
+            df = yf.download(f"{symbol}=X", period="1y", interval="1d", auto_adjust=True)
+            
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
     except Exception as e:
-        st.error(f"Error downloading data: {e}")
         return None
-
-data = load_data(ticker)
-
-if data is not None and not data.empty:
      # --- 4. VISUALIZATION ---
     
     # 1. Charts first in Tabs

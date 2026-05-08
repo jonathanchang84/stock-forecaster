@@ -13,9 +13,14 @@ top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
 selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
 
 # 2. User Input
+# --- 1. Sidebar and Ticker ---
+st.sidebar.header("Top Performers")
+top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
+selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
+
 ticker = st.text_input("Or enter any ticker manually:", selected_stock)
 
-# --- ADD THIS LINE BACK ---
+# --- THE MISSING LINE (Add this back!) ---
 days_to_predict = st.slider("Days to predict into the future:", 30, 365)
 
 # --- LOAD DATA ---

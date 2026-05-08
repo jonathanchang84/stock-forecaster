@@ -12,10 +12,7 @@ st.set_page_config(page_title="Global Finance AI", layout="wide")
 @st.cache_resource
 def init_connection():
     try:
-        # Pulling from Streamlit Cloud Secrets
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
+        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     except:
         return None
 
@@ -29,47 +26,33 @@ def get_pinned_stocks():
     except:
         return []
 
-# --- 2. SIDEBAR NAVIGATION ---
+# --- 2. SIDEBAR ---
 st.sidebar.header("Navigation")
-st.sidebar.info("""
-**Ticker Guide:**
-- 📈 **Stocks:** `AAPL`, `TSLA`
-- 💱 **Forex:** `GBPUSD=X`
-- ₿ **Crypto:** `BTC-USD`
-""")
-
 pinned = get_pinned_stocks()
 defaults = ["AAPL", "NVDA", "GBPUSD=X", "BTC-USD"]
 options = sorted(list(set(defaults + pinned)))
-
 selected_stock = st.sidebar.radio("Quick Select:", options)
 
-# --- 3. MAIN INTERFACE ---
+# --- 3. MAIN INPUTS ---
 st.title("📈 AI Finance Dashboard")
 ticker = st.text_input("Enter Ticker Symbol:", value=selected_stock).upper()
 days = st.slider("Forecast Days:", 30, 365, 90)
 
-if st.button(f"📌 Pin {ticker} to Sidebar"):
-    if supabase:
-        try:
-            supabase.table("user_pins").insert({"ticker": ticker}).execute()
-            st.success(f"{ticker} added to database!")
-            st.rerun()
-        except:
-            st.error("Error saving to database.")
-    else:
-        st.warning("Database connection not detected.")
+if st.button(f"📌 Pin {ticker}"):
+    try:
+        supabase.table("user_pins").insert({"ticker": ticker}).execute()
+        st.success(f"{ticker} pinned!")
+        st.rerun()
+    except:
+        st.error("Database error.")
 
 # --- 4. DATA ENGINE ---
 @st.cache_data
 def load_data(symbol):
     try:
-        # Download 1 year of data
         df = yf.download(symbol, period="1y", interval="1d", auto_adjust=True)
-        if df.empty:
-            return None
+        if df.empty: return None
         df.reset_index(inplace=True)
-        # Handle potential MultiIndex columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
@@ -79,60 +62,48 @@ def load_data(symbol):
 data = load_data(ticker)
 
 if data is not None and not data.empty:
-    # --- 5. VISUALIZATION TABS ---
-    t1, t2 = st.tabs(["📊 Market Charts", "📋 Raw Data Records"])
+    # --- 5. THE TOGGLE (TABS) ---
+    st.subheader("Market Analysis")
+    # This creates the toggle you liked
+    tab1, tab2 = st.tabs(["📉 Historic Chart", "🤖 AI Forecast"])
     
-    with t1:
-        st.subheader("Historical Price Analysis")
+    with tab1:
         st.line_chart(data.set_index('Date')['Close'])
-        
-        st.subheader("AI Trend Forecast")
+    
+    with tab2:
         df_train = data[['Date', 'Close']].copy().rename(columns={"Date":"ds", "Close":"y"})
         df_train['ds'] = df_train['ds'].dt.tz_localize(None)
-        
-        m = Prophet()
-        m.fit(df_train)
-        
+        m = Prophet().fit(df_train)
         future = m.make_future_dataframe(periods=days)
         forecast = m.predict(future)
-        
-        fig = plot_plotly(m, forecast)
-        st.plotly_chart(fig, use_container_width=True)
-        
-    with t2:
-        st.subheader("Recent Price History")
-        st.dataframe(data.sort_values(by='Date', ascending=False), use_container_width=True)
+        st.plotly_chart(plot_plotly(m, forecast), use_container_width=True)
 
-    # --- 6. NEWS FEED ---
+    # --- 6. THE TABLE (UNDERNEATH) ---
+    st.divider()
+    st.subheader("📋 Price History Table")
+    # This ensures the table stays visible below the charts
+    st.dataframe(data.sort_values(by='Date', ascending=False), use_container_width=True)
+
+    # --- 7. NEWS FEED ---
     st.divider()
     st.subheader(f"Latest {ticker} Headlines")
     try:
-        news_items = yf.Ticker(ticker).news
-        if news_items:
-            for art in news_items[:5]:
+        news = yf.Ticker(ticker).news
+        if news:
+            for art in news[:5]:
                 c = art.get("content", art)
                 col_img, col_txt = st.columns([1, 4])
-                
                 with col_img:
                     thumb = c.get("thumbnail", {}).get("resolutions", [])
-                    if thumb:
-                        st.image(thumb[0].get("url"), use_container_width=True)
-                    else:
-                        st.caption("No Image")
-                
+                    if thumb: st.image(thumb[0].get("url"), use_container_width=True)
+                    else: st.caption("No Image")
                 with col_txt:
-                    title = c.get('title', art.get('title', 'Headline'))
-                    st.write(f"**{title}**")
-                    link = c.get("clickThroughUrl", {}).get("url") or \
-                           c.get("canonicalUrl", {}).get("url") or \
-                           art.get("link")
-                    if link:
-                        st.markdown(f"[Read Article]({link})")
+                    st.write(f"**{c.get('title', 'Headline')}**")
+                    link = c.get("clickThroughUrl", {}).get("url") or art.get("link")
+                    if link: st.markdown(f"[Read Article]({link})")
                 st.write("---")
-        else:
-            st.info("No news found for this ticker.")
     except:
-        st.info("News feed is currently unavailable.")
+        st.info("News feed unavailable.")
 
 else:
-    st.warning("Invalid ticker. Please try a different symbol (e.g., AAPL, GBPUSD=X).")
+    st.warning("Invalid ticker. Try AAPL or GBPUSD=X.")

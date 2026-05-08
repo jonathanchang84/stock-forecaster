@@ -9,16 +9,14 @@ st.title("My AI Stock Forecast Tool")
 
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.header("Top Performers")
-
-# Define our top 5 stocks
 top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
-
-# This creates the clickable list in the sidebar
-# We set the 'index' to None or 0 to control the default
 selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
 
-# Also keep the manual text input in case they want a different one
+# 2. User Input
 ticker = st.text_input("Or enter any ticker manually:", selected_stock)
+
+# --- ADD THIS LINE BACK ---
+days_to_predict = st.slider("Days to predict into the future:", 30, 365)
 
 # --- LOAD DATA ---
 @st.cache_data

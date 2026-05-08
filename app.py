@@ -2,64 +2,60 @@ import streamlit as st
 import yfinance as yf
 from prophet import Prophet
 from prophet.plot import plot_plotly
+from plotly import graph_objs as go
 from datetime import date
 
-# 1. Setup the Title
-st.title("My AI Stock Forecast Tool")
+# 1. Page Config & Title
+st.set_page_config(page_title="Stock Forecast App", layout="wide")
+st.title("📈 AI Stock Prediction Dashboard")
 
-# --- SIDEBAR NAVIGATION ---
+# 2. Sidebar Navigation
 st.sidebar.header("Top Performers")
 top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
-selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
 
-# 2. User Input
-# --- 1. Sidebar and Ticker ---
-st.sidebar.header("Top Performers")
-top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
-selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
+# Using a unique key to prevent the 'DuplicateElementId' error
+selected_stock = st.sidebar.radio(
+    "Quick Select:", 
+    top_stocks, 
+    key="sidebar_selector"
+)
 
-ticker = st.text_input("Or enter any ticker manually:", selected_stock)
-
-# --- THE MISSING LINE (Add this back!) ---
+# 3. User Inputs
+ticker = st.text_input("Enter Ticker Symbol (e.g. BTC-USD, AMD, AMZN):", selected_stock)
 days_to_predict = st.slider("Days to predict into the future:", 30, 365)
 
-# --- LOAD DATA ---
+# 4. Load Data Function
 @st.cache_data
 def load_data(symbol):
-    # We use the 'ticker' variable which is now linked to the sidebar
     data = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"))
     data.reset_index(inplace=True)
     return data
 
-# The rest of your code (Forecasting & Table) stays the same!
+data_load_state = st.text("Loading data...")
 data = load_data(ticker)
+data_load_state.text("Loading data... done!")
 
-# --- THE FIX STARTS HERE ---
-# We need to make sure the data is "flat" so the AI can read it
-df_train = data[['Date', 'Close']].copy()
-df_train.columns = ['ds', 'y'] # Prophet requires these specific names
-df_train['ds'] = df_train['ds'].dt.tz_localize(None) # Remove timezones
-df_train['y'] = df_train['y'].values.flatten() # Make sure it's a simple list
-# --- THE FIX ENDS HERE ---
+# 5. Raw Data Visualization
+st.subheader(f"Historical Data for {ticker}")
+st.line_chart(data.set_index('Date')['Close'])
 
-# 4. The Forecasting Logic
+# 6. Forecasting with Prophet
+st.subheader("AI Forecast")
+df_train = data[['Date', 'Close']]
+df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
+
 m = Prophet()
 m.fit(df_train)
 future = m.make_future_dataframe(periods=days_to_predict)
 forecast = m.predict(future)
 
-# 5. Display the Chart
-st.subheader(f"Prediction for {ticker}")
+# Show forecast chart
 fig1 = plot_plotly(m, forecast)
 st.plotly_chart(fig1)
 
-st.write("Black dots = Actual Price | Blue line = Prediction")
-# 6. Display the History Table
-st.subheader("Historical Price Data")
-
-# We use .tail(10) to show the most recent 10 days so the table isn't too long
-# .sort_values(by='Date', ascending=False) puts the newest date at the top
+# 7. History Table
+st.subheader("Recent Price History")
+# Formating the table to show newest dates first
 history_table = data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
 history_table = history_table.sort_values(by='Date', ascending=False)
-
-st.dataframe(history_table.head(20)) # Shows the top 20 rows
+st.dataframe(history_table.head(20), use_container_width=True)

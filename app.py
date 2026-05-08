@@ -7,17 +7,28 @@ from datetime import date
 # 1. Setup the Title
 st.title("My AI Stock Forecast Tool")
 
-# 2. User Input
-ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, BTC-USD)", "AAPL")
-days_to_predict = st.slider("Days to predict into the future:", 30, 365)
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.header("Top Performers")
 
-# 3. Load Data
+# Define our top 5 stocks
+top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
+
+# This creates the clickable list in the sidebar
+# We set the 'index' to None or 0 to control the default
+selected_stock = st.sidebar.radio("Select a stock to view:", top_stocks)
+
+# Also keep the manual text input in case they want a different one
+ticker = st.text_input("Or enter any ticker manually:", selected_stock)
+
+# --- LOAD DATA ---
 @st.cache_data
 def load_data(symbol):
+    # We use the 'ticker' variable which is now linked to the sidebar
     data = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"))
     data.reset_index(inplace=True)
     return data
 
+# The rest of your code (Forecasting & Table) stays the same!
 data = load_data(ticker)
 
 # --- THE FIX STARTS HERE ---

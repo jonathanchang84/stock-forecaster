@@ -33,16 +33,33 @@ days_to_predict = st.slider("Forecast Days:", 30, 365, 90)
 @st.cache_data
 def load_data(symbol):
     try:
-        df = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"))
+        # We add 'auto_adjust=True' to help simplify the columns
+        df = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"), auto_adjust=True)
         df.reset_index(inplace=True)
+        
+        # MANDATORY FIX: If yfinance returns multi-level columns, we flatten them
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
         return df
     except Exception as e:
         st.error(f"Error loading {symbol}: {e}")
         return None
 
+# Add this line at the very top of your imports if you don't have it:
+import pandas as pd 
+
 data = load_data(ticker)
 
 if data is not None and not data.empty:
+    # --- 5. VISUALIZATION ---
+    st.subheader(f"Historical Price: {ticker}")
+    
+    # We ensure we are looking for the 'Close' column in a clean way
+    if 'Close' in data.columns:
+        st.line_chart(data.set_index('Date')['Close'])
+    else:
+        st.error("Could not find 'Close' column. Columns found: " + str(list(data.columns)))
     # --- 5. VISUALIZATION ---
     st.subheader(f"Historical Price: {ticker}")
     st.line_chart(data.set_index('Date')['Close'])

@@ -87,29 +87,51 @@ if data is not None and not data.empty:
     # We show the most recent 50 rows, nicely formatted
     latest_data = data.sort_values(by='Date', ascending=False).head(50)
     st.dataframe(latest_data, use_container_width=True, hide_index=True)
-    # --- 5. NEWS FEED ---
+       # --- 5. NEWS FEED ---
     st.divider()
     st.subheader(f"Latest {ticker} Headlines")
+    
     try:
-        news = yf.Ticker(ticker).news
-        for art in news[:5]:
-            c = art.get("content", art)
-            col_img, col_txt = st.columns([1, 4])
-            
-            with col_img:
-                thumb = c.get("thumbnail", {}).get("resolutions", [])
-                if thumb:
-                    st.image(thumb[0].get("url"), use_container_width=True)
-                else:
-                    st.caption("No Image")
-            
-            with col_txt:
-                st.write(f"**{c.get('title', 'News Headline')}**")
-                link = c.get("clickThroughUrl", {}).get("url") or art.get("link")
-                if link: st.markdown(f"[Read Full Article]({link})")
-            st.write("---")
-    except:
-        st.info("News feed currently unavailable.")
-
-else:
-    st.warning("Please enter a valid ticker symbol to load data.")
+        # Fetch news with a fresh object
+        news_fetcher = yf.Ticker(ticker)
+        news = news_fetcher.news
+        
+        if not news:
+            st.info("No recent news found for this ticker.")
+        else:
+            for art in news[:5]:
+                # Deep-dive into the dictionary to find content
+                # Some versions of yfinance put everything in 'content', others don't
+                c = art.get("content", art)
+                
+                col_img, col_txt = st.columns([1, 4])
+                
+                with col_img:
+                    # Very specific check for the thumbnail URL
+                    thumb_data = c.get("thumbnail", {})
+                    if isinstance(thumb_data, dict):
+                        resolutions = thumb_data.get("resolutions", [])
+                        if resolutions:
+                            st.image(resolutions[0].get("url"), use_container_width=True)
+                        else:
+                            st.caption("No Image")
+                    else:
+                        st.caption("No Image")
+                
+                with col_txt:
+                    title = c.get('title', art.get('title', 'News Headline'))
+                    st.write(f"**{title}**")
+                    
+                    # Try multiple places for the link
+                    link = c.get("clickThroughUrl", {}).get("url") or \
+                           c.get("canonicalUrl", {}).get("url") or \
+                           art.get("link")
+                           
+                    if link: 
+                        st.markdown(f"[Read Full Article]({link})")
+                st.write("---")
+                
+    except Exception as e:
+        # This will show you the ACTUAL error for 5 seconds to help us debug
+        st.warning(f"Note: News feed is stuttering (Error: {e})")
+        st.info("The rest of your dashboard is working fine!")

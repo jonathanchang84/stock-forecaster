@@ -61,39 +61,51 @@ with col2:
         st.success(f"{ticker} added to database!")
         st.rerun()
 
-# --- 5. DATA ENGINE ---
-@st.cache_data
-def load_data(symbol):
-    try:
-        df = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"), auto_adjust=True)
-        df.reset_index(inplace=True)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df
-    except Exception: return None
-
-data = load_data(ticker)
-
-if data is not None and not data.empty:
-    st.subheader("Historical Price")
-    st.line_chart(data.set_index('Date')['Close'])
-
-    st.subheader("AI Future Trend")
-    df_train = data[['Date', 'Close']].copy().rename(columns={"Date": "ds", "Close": "y"})
-    df_train['ds'] = df_train['ds'].dt.tz_localize(None)
-    m = Prophet()
-    m.fit(df_train)
-    future = m.make_future_dataframe(periods=days_to_predict)
-    forecast = m.predict(future)
-    st.plotly_chart(plot_plotly(m, forecast), use_container_width=True)
-
+    # --- NEWS SECTION (Final Version) ---
     st.subheader(f"Latest {ticker} News")
-    news_data = yf.Ticker(ticker).news
+    ticker_obj = yf.Ticker(ticker)
+    news_data = ticker_obj.news
+
     if news_data:
-        for article in news_data[:5]:
+        for article in news_data[:8]:  # Show top 8
+            # 1. Get the content block
             content = article.get("content", article)
+            
+            # 2. Extract Data
             title = content.get("title", "No Title")
-            st.write(f"**{title}**")
-            st.divider()
-else:
-    st.warning("Enter a valid ticker to begin.")
+            
+            # Link handling: Look in 'clickThroughUrl', then 'canonicalUrl', then 'link'
+            link = None
+            ct_url = content.get("clickThroughUrl")
+            if isinstance(ct_url, dict):
+                link = ct_url.get("url")
+            if not link:
+                link = content.get("canonicalUrl", {}).get("url")
+            if not link:
+                link = article.get("link")
+            
+            # 3. Layout with Image and Text
+            with st.container():
+                col1, col2 = st.columns([1, 3])
+                
+                # Thumbnail Logic
+                thumb = content.get("thumbnail")
+                has_image = False
+                if isinstance(thumb, dict):
+                    res = thumb.get("resolutions", [])
+                    if res and isinstance(res, list):
+                        col1.image(res[0].get("url"), use_container_width=True)
+                        has_image = True
+                
+                if not has_image:
+                    col1.info("No Image")
+
+                with col2:
+                    st.write(f"**{title}**")
+                    if link:
+                        st.markdown(f"[🔗 Read full article]({link})")
+                    else:
+                        st.write("*(Link unavailable)*")
+                st.divider()
+    else:
+        st.write("No recent news found.")

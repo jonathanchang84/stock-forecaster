@@ -47,17 +47,26 @@ if data is not None and not data.empty:
     st.subheader(f"Historical Price: {ticker}")
     st.line_chart(data.set_index('Date')['Close'])
 
-    # --- 6. AI FORECASTING ---
+        # --- 6. AI FORECASTING ---
     st.subheader("AI Future Trend")
     
-    # Prepare data for Prophet
-    df_train = data[['Date', 'Close']].rename(columns={"Date": "ds", "Close": "y"})
+    # 1. Prepare data (Flatten the headers and remove timezone)
+    df_train = data[['Date', 'Close']].copy()
     
+    # This line fixes the specific TypeError you saw:
+    df_train.columns = ['ds', 'y'] 
+    
+    # Ensure 'y' is a simple list of numbers and 'ds' has no timezone
+    df_train['y'] = df_train['y'].values.flatten()
+    df_train['ds'] = df_train['ds'].dt.tz_localize(None)
+    
+    # 2. Run the AI
     m = Prophet()
     m.fit(df_train)
     future = m.make_future_dataframe(periods=days_to_predict)
     forecast = m.predict(future)
     
+    # 3. Show forecast chart
     fig = plot_plotly(m, forecast)
     st.plotly_chart(fig, use_container_width=True)
 

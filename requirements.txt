@@ -4,5 +4,4 @@ prophet
 plotly
 pandas
 supabase
-SUPABASE_URL = "https://ohxlsdqgghyowimumrjc.supabase.co"
-SUPABASE_KEY = "sb_publishable_kvuh7EI_EUCQ-YQ-sv5C-A_6sCuVtPg"
+

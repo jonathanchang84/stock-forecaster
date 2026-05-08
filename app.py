@@ -50,38 +50,41 @@ if st.button(f"📌 Pin {ticker}"):
 @st.cache_data
 def load_data(symbol):
     try:
-        df = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"), auto_adjust=True)
+        # We use '1y' period to ensure the table isn't 10 years long and slow
+        df = yf.download(symbol, period="1y", interval="1d", auto_adjust=True)
         df.reset_index(inplace=True)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
-    except:
+    except Exception as e:
+        st.error(f"Error downloading data: {e}")
         return None
 
 data = load_data(ticker)
 
 if data is not None and not data.empty:
-    # --- 4. VISUALIZATION TABS ---
-    t1, t2, t3 = st.tabs(["📈 Historical Chart", "🤖 AI Forecast", "📋 Raw Data"])
+    # --- 4. VISUALIZATION ---
+    
+    # FIRST: Show the Table (Moved it up so it's impossible to miss)
+    st.subheader(f"Recent Price Data for {ticker}")
+    # Displaying the last 10 rows clearly
+    latest_data = data.sort_values(by='Date', ascending=False).head(20)
+    st.table(latest_data) # Using st.table instead of st.dataframe for a static, visible view
+
+    # SECOND: Show Charts in Tabs
+    st.divider()
+    t1, t2 = st.tabs(["📈 Historical Chart", "🤖 AI Forecast"])
     
     with t1:
-        st.subheader("Historical Price (Closing)")
         st.line_chart(data.set_index('Date')['Close'])
     
     with t2:
-        st.subheader("Prophet AI Prediction")
         df_t = data[['Date', 'Close']].copy().rename(columns={"Date":"ds", "Close":"y"})
         df_t['ds'] = df_t['ds'].dt.tz_localize(None)
         m = Prophet().fit(df_t)
         future = m.make_future_dataframe(periods=days)
         forecast = m.predict(future)
         st.plotly_chart(plot_plotly(m, forecast), use_container_width=True)
-        
-    with t3:
-        st.subheader("Recent Price Records")
-        # Sorting so latest dates are on top
-        st.dataframe(data.sort_values(by='Date', ascending=False), use_container_width=True)
-
     # --- 5. NEWS FEED ---
     st.divider()
     st.subheader(f"Latest {ticker} Headlines")

@@ -40,3 +40,12 @@ fig1 = plot_plotly(m, forecast)
 st.plotly_chart(fig1)
 
 st.write("Black dots = Actual Price | Blue line = Prediction")
+# 6. Display the History Table
+st.subheader("Historical Price Data")
+
+# We use .tail(10) to show the most recent 10 days so the table isn't too long
+# .sort_values(by='Date', ascending=False) puts the newest date at the top
+history_table = data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
+history_table = history_table.sort_values(by='Date', ascending=False)
+
+st.dataframe(history_table.head(20)) # Shows the top 20 rows

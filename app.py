@@ -9,6 +9,7 @@ from datetime import date
 st.set_page_config(page_title="Stock Forecast App", layout="wide")
 st.title("📈 AI Stock Prediction Dashboard")
 
+<<<<<<< HEAD
 # 2. Sidebar Navigation
 st.sidebar.header("Top Performers")
 top_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
@@ -25,13 +26,23 @@ ticker = st.text_input("Enter Ticker Symbol (e.g. BTC-USD, AMD, AMZN):", selecte
 days_to_predict = st.slider("Days to predict into the future:", 30, 365)
 
 # 4. Load Data Function
+=======
+# 2. User Input
+ticker = st.text_input("Enter Stock Ticker (e.g., AAPL, BTC-USD)", "AAPL")
+days_to_predict = st.slider("Days to predict into the future:", 30, 365)
+
+# 3. Load Data
+>>>>>>> parent of 59e9d0d (side nav addition)
 @st.cache_data
 def load_data(symbol):
     data = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"))
     data.reset_index(inplace=True)
     return data
 
+<<<<<<< HEAD
 data_load_state = st.text("Loading data...")
+=======
+>>>>>>> parent of 59e9d0d (side nav addition)
 data = load_data(ticker)
 data_load_state.text("Loading data... done!")
 

@@ -118,31 +118,102 @@ else:
     st.write("No recent news found for this ticker.")
     from supabase import create_client, Client
 
-# 1. Connect to Supabase using your Secrets
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
-supabase: Client = create_client(url, key)
+import streamlit as st
+import yfinance as yf
+from prophet import Prophet
+from prophet.plot import plot_plotly
+import pandas as pd
+from datetime import date
+from supabase import create_client, Client
 
-# 2. Function to save a stock
-def pin_stock(ticker_to_save):
-    # Check if it's already there first to avoid duplicates
-    supabase.table("user_pins").insert({"ticker": ticker_to_save}).execute()
+# --- 1. SETTINGS & CONNECTIONS ---
+st.set_page_config(page_title="Stock AI Dashboard", layout="wide")
 
-# 3. Function to get pinned stocks
-def get_pins():
-    response = supabase.table("user_pins").select("ticker").execute()
-    # Extract the ticker names into a simple list
-    return [item['ticker'] for item in response.data]
+# Connect to Supabase
+@st.cache_resource
+def init_connection():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
-# --- SIDEBAR UI ---
-st.sidebar.header("Pinned Stocks")
-saved_tickers = get_pins()
+supabase = init_connection()
 
-if saved_tickers:
-    selected_pin = st.sidebar.selectbox("Your Favorites:", saved_tickers)
-    # You can then use 'selected_pin' to update your main chart!
+# --- 2. DATABASE FUNCTIONS ---
+def get_pinned_stocks():
+    try:
+        response = supabase.table("user_pins").select("ticker").execute()
+        # Returns a unique list of tickers from the DB
+        return sorted(list(set([item['ticker'] for item in response.data])))
+    except Exception:
+        return []
 
-# --- MAIN UI ---
-if st.button(f"📌 Pin {ticker} to Sidebar"):
-    pin_stock(ticker)
-    st.rerun() # Refresh the app so it shows up in the sidebar immediately
+def add_pin(ticker_symbol):
+    supabase.table("user_pins").insert({"ticker": ticker_symbol}).execute()
+
+# --- 3. SIDEBAR ---
+st.sidebar.header("Navigation")
+default_stocks = ["AAPL", "NVDA", "TSLA", "MSFT", "GOOGL"]
+pinned = get_pinned_stocks()
+
+# Combine default stocks with pinned stocks for the menu
+all_options = sorted(list(set(default_stocks + pinned)))
+
+selected_stock = st.sidebar.radio("Select Stock:", all_options, key="main_nav")
+
+if st.sidebar.button("Clear All Pins (Database)"):
+    # Safety: In a real app, you'd only delete user-specific pins
+    supabase.table("user_pins").delete().neq("ticker", "empty").execute()
+    st.rerun()
+
+# --- 4. MAIN INTERFACE ---
+st.title("📈 AI Stock Prediction Dashboard")
+ticker = st.text_input("Ticker Symbol:", value=selected_stock).upper()
+
+col1, col2 = st.columns([1, 1])
+with col1:
+    days_to_predict = st.slider("Forecast Days:", 30, 365, 90)
+with col2:
+    if st.button(f"📌 Pin {ticker} to Sidebar"):
+        add_pin(ticker)
+        st.success(f"{ticker} added to database!")
+        st.rerun()
+
+# --- 5. DATA ENGINE ---
+@st.cache_data
+def load_data(symbol):
+    try:
+        df = yf.download(symbol, start="2015-01-01", end=date.today().strftime("%Y-%m-%d"), auto_adjust=True)
+        df.reset_index(inplace=True)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        return df
+    except Exception: return None
+
+data = load_data(ticker)
+
+if data is not None and not data.empty:
+    # Historical Chart
+    st.subheader("Historical Price")
+    st.line_chart(data.set_index('Date')['Close'])
+
+    # AI Forecast
+    st.subheader("AI Future Trend")
+    df_train = data[['Date', 'Close']].copy().rename(columns={"Date": "ds", "Close": "y"})
+    df_train['ds'] = df_train['ds'].dt.tz_localize(None)
+    m = Prophet()
+    m.fit(df_train)
+    future = m.make_future_dataframe(periods=days_to_predict)
+    forecast = m.predict(future)
+    st.plotly_chart(plot_plotly(m, forecast), use_container_width=True)
+
+    # News (Ultra-Safe Version)
+    st.subheader(f"Latest {ticker} News")
+    news_data = yf.Ticker(ticker).news
+    if news_data:
+        for article in news_data[:5]: # Show top 5
+            content = article.get("content", article)
+            title = content.get("title", "No Title")
+            st.write(f"**{title}**")
+            st.divider()
+else:
+    st.warning("Enter a valid ticker to begin.")

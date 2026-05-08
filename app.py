@@ -65,26 +65,37 @@ if data is not None and not data.empty:
 
 else:
     st.info("Waiting for valid ticker symbol...")
-    # --- 8. NEWS SECTION ---
+    
+
+# --- 8. NEWS SECTION ---
 st.header(f"Latest News for {ticker}")
 
 # Fetch news from yfinance
-news = yf.Ticker(ticker).news
+news_data = yf.Ticker(ticker).news
 
-if news:
-    for article in news:
-        # Create a container for each news item
+if news_data:
+    for article in news_data:
+        # Yahoo Finance recently moved data under a 'content' key
+        # We use .get() to avoid crashing if a piece of info is missing
+        content = article.get("content", article) 
+        
+        title = content.get("title", "No Title Available")
+        link = content.get("clickThroughUrl", {}).get("url", article.get("link"))
+        publisher = content.get("provider", {}).get("displayName", "News Provider")
+        
         with st.container():
             col1, col2 = st.columns([1, 4])
             
-            # Show thumbnail if available
-            if "thumbnail" in article and "resolutions" in article["thumbnail"]:
-                col1.image(article["thumbnail"]["resolutions"][0]["url"])
+            # Check for thumbnail in the new format
+            thumbnail_data = content.get("thumbnail", {}).get("resolutions", [])
+            if thumbnail_data:
+                col1.image(thumbnail_data[0]["url"])
             
             with col2:
-                st.subheader(article["title"])
-                st.write(f"Source: {article['publisher']} | Type: {article['type']}")
-                st.markdown(f"[Read full article]({article['link']})")
+                st.subheader(title)
+                st.write(f"Source: {publisher}")
+                if link:
+                    st.markdown(f"[Read full article]({link})")
             st.divider()
 else:
     st.write("No recent news found for this ticker.")

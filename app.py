@@ -76,28 +76,37 @@ if news_data:
     for article in news_data:
         # 1. Safely grab the content block
         content = article.get("content")
-        
-        # If 'content' is missing or not a dictionary, fallback to the article itself
         if not isinstance(content, dict):
             content = article
             
-        # 2. Get the core details with fallbacks
+        # 2. Get Title and Publisher
         title = content.get("title", "No Title")
-        publisher = content.get("provider", {}).get("displayName", "Finance News")
+        provider_data = content.get("provider", {})
+        publisher = "Finance News"
+        if isinstance(provider_data, dict):
+            publisher = provider_data.get("displayName", "Finance News")
         
-        # Look for the link in several possible places
-        link = content.get("clickThroughUrl", {}).get("url") or article.get("link")
+        # 3. SAFELY GET LINK (This fixes the AttributeError)
+        link = None
+        ct_url = content.get("clickThroughUrl")
+        if isinstance(ct_url, dict):
+            link = ct_url.get("url")
+        
+        # Fallback to standard link if ct_url failed
+        if not link:
+            link = article.get("link")
         
         with st.container():
             col1, col2 = st.columns([1, 4])
             
-            # 3. ULTRA-SAFE THUMBNAIL CHECK
-            # We check each step to make sure it's a dictionary before asking for a key
+            # 4. ULTRA-SAFE THUMBNAIL CHECK
             thumb = content.get("thumbnail")
             if isinstance(thumb, dict):
                 resolutions = thumb.get("resolutions", [])
-                if resolutions and isinstance(resolutions, list):
-                    col1.image(resolutions[0].get("url"))
+                if isinstance(resolutions, list) and len(resolutions) > 0:
+                    res = resolutions[0]
+                    if isinstance(res, dict):
+                        col1.image(res.get("url"))
             
             with col2:
                 st.subheader(title)

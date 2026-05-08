@@ -116,3 +116,33 @@ if news_data:
             st.divider()
 else:
     st.write("No recent news found for this ticker.")
+    from supabase import create_client, Client
+
+# 1. Connect to Supabase using your Secrets
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
+
+# 2. Function to save a stock
+def pin_stock(ticker_to_save):
+    # Check if it's already there first to avoid duplicates
+    supabase.table("user_pins").insert({"ticker": ticker_to_save}).execute()
+
+# 3. Function to get pinned stocks
+def get_pins():
+    response = supabase.table("user_pins").select("ticker").execute()
+    # Extract the ticker names into a simple list
+    return [item['ticker'] for item in response.data]
+
+# --- SIDEBAR UI ---
+st.sidebar.header("Pinned Stocks")
+saved_tickers = get_pins()
+
+if saved_tickers:
+    selected_pin = st.sidebar.selectbox("Your Favorites:", saved_tickers)
+    # You can then use 'selected_pin' to update your main chart!
+
+# --- MAIN UI ---
+if st.button(f"📌 Pin {ticker} to Sidebar"):
+    pin_stock(ticker)
+    st.rerun() # Refresh the app so it shows up in the sidebar immediately

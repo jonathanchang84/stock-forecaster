@@ -63,16 +63,10 @@ def load_data(symbol):
 data = load_data(ticker)
 
 if data is not None and not data.empty:
-    # --- 4. VISUALIZATION ---
+     # --- 4. VISUALIZATION ---
     
-    # FIRST: Show the Table (Moved it up so it's impossible to miss)
-    st.subheader(f"Recent Price Data for {ticker}")
-    # Displaying the last 10 rows clearly
-    latest_data = data.sort_values(by='Date', ascending=False).head(20)
-    st.table(latest_data) # Using st.table instead of st.dataframe for a static, visible view
-
-    # SECOND: Show Charts in Tabs
-    st.divider()
+    # 1. Charts first in Tabs
+    st.subheader("Market Analysis")
     t1, t2 = st.tabs(["📈 Historical Chart", "🤖 AI Forecast"])
     
     with t1:
@@ -85,6 +79,14 @@ if data is not None and not data.empty:
         future = m.make_future_dataframe(periods=days)
         forecast = m.predict(future)
         st.plotly_chart(plot_plotly(m, forecast), use_container_width=True)
+
+    # 2. Table moved to here (Under the charts)
+    st.divider()
+    st.subheader(f"Raw Data Records: {ticker}")
+    
+    # We show the most recent 50 rows, nicely formatted
+    latest_data = data.sort_values(by='Date', ascending=False).head(50)
+    st.dataframe(latest_data, use_container_width=True, hide_index=True)
     # --- 5. NEWS FEED ---
     st.divider()
     st.subheader(f"Latest {ticker} Headlines")
